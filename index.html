@@ -123,7 +123,9 @@
         #cpu-result.good { color: #4caf50; }
         #cpu-result.bad { color: var(--danger); }
         
-        .theme-toggle { position: absolute; top: 1rem; right: 1rem; background: none; color: var(--text); border: none; font-size: 0.8rem; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+        .top-nav { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 4px; }
+        .nav-btn { background: none; color: var(--text); border: none; font-size: 0.8rem; padding: 4px 10px; border-radius: 4px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; }
+        .nav-btn:hover { opacity: 1; background-color: var(--row-hover); }
         
         footer { margin-top: 1rem; text-align: center; font-size: 0.6rem; color: #888; opacity: 0; padding-bottom: 2rem; transition: opacity 0.3s ease; }
         footer:hover { opacity: 0.5; }
@@ -133,7 +135,10 @@
 </head>
 <body>
 
-<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="top-nav">
+    <button class="nav-btn" onclick="sharePage()" title="Share">⎋</button>
+    <button class="nav-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+</div>
 
 <div class="container">
     <div class="card">
@@ -197,6 +202,25 @@
     }
 
     function save() { localStorage.setItem('latency_sites', JSON.stringify(sites)); }
+
+    async function sharePage() {
+        try {
+            await navigator.share({
+                title: '3nt.lat | Web Latency & CPU Tester',
+                text: 'Check your web latency and CPU performance with this minimalist tool.',
+                url: window.location.href
+            });
+        } catch (err) {
+            // Fallback: copy to clipboard if share API is not supported or cancelled
+            if (err.name !== 'AbortError') {
+                navigator.clipboard.writeText(window.location.href);
+                const shareBtn = document.querySelector('.nav-btn[title="Share"]');
+                const originalText = shareBtn.textContent;
+                shareBtn.textContent = '✓';
+                setTimeout(() => shareBtn.textContent = originalText, 2000);
+            }
+        }
+    }
 
     function render() {
         const left = document.getElementById('tbody-left');
