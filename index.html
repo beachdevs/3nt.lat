@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Latency & CPU Tester</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #333333;
+            --row-hover: #fafafa;
+            --accent: #000000;
+            --danger: #f44336;
+            --font-size: 0.75rem;
+        }
+        [data-theme="dark"] {
+            --bg: #121212;
+            --text: #bbbbbb;
+            --row-hover: #1a1a1a;
+            --accent: #ffffff;
+            --danger: #ff5252;
+        }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            font-size: var(--font-size);
+            background: var(--bg);
+            background-image: radial-gradient(circle at 50% 50%, rgba(128,128,128,0.03) 0%, transparent 100%);
+            color: var(--text);
+            transition: background 0.2s, color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding-top: 15vh;
+            margin: 0;
+        }
+        .container { 
+            width: 100%; 
+            max-width: 600px; 
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; 
+        }
+        .card {
+            background: var(--bg);
+            padding: 0.75rem;
+            border-radius: 6px;
+            position: relative;
+        }
+        .cpu-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 0.5rem; }
+        h2 { margin: 0; font-size: 0.85rem; font-weight: 600; }
+        .cpu-info { font-size: 0.65rem; color: #888; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+        .cpu-header:hover .cpu-info { opacity: 1; }
+        
+        .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 10px; }
+        .add-site-box { display: flex; gap: 4px; flex-grow: 1; }
+        .action-buttons { display: flex; gap: 8px; }
+        .action-buttons button {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 400;
+            background: none;
+            border: none;
+            box-shadow: none;
+            transition: all 0.1s ease;
+        }
+        .action-buttons button:hover {
+            background-color: var(--row-hover);
+            transform: none;
+            box-shadow: none;
+        }
+        .action-buttons button:active {
+            opacity: 0.7;
+        }
+        .action-buttons button[onclick*="testAll"] {
+            color: var(--accent);
+        }
+        .action-buttons button[onclick*="resetSites"] {
+            color: #888;
+            font-weight: 400;
+        }
+        .action-buttons button[onclick*="resetSites"]:hover {
+            color: var(--text);
+        }
+        
+        input {
+            flex-grow: 1; padding: 4px 8px; border-radius: 4px; font-size: var(--font-size);
+            border: none; background: var(--row-hover); color: var(--text);
+        }
+        input:focus { outline: none; }
+        button {
+            padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer;
+            background: none; color: var(--text); font-weight: 500; font-size: 0.7rem;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--row-hover); }
+        
+        .cpu-btn { position: absolute; top: 0.75rem; right: 0.75rem; }
+        
+        .site-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 1.5rem;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 4px 6px; border: none; }
+        th { font-weight: 600; color: #888; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.05em; border-bottom: 1px solid var(--row-hover); }
+        tr:hover { background: var(--row-hover); }
+        .latency { font-family: ui-monospace, monospace; font-weight: 700; color: var(--text); font-size: 0.7rem; text-align: right; }
+        .latency.good { color: #4caf50; }
+        .latency.ok { color: #ff9800; }
+        .latency.bad { color: var(--danger); }
+        
+        .remove-btn {
+            color: var(--danger); cursor: pointer; font-size: 0.9rem;
+            opacity: 0; transition: opacity 0.1s; padding: 0 2px;
+        }
+        tr:hover .remove-btn { opacity: 1; }
+        
+        #cpu-result { font-family: ui-monospace, monospace; font-size: 0.7rem; margin-top: 1rem; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        #cpu-result.good { color: #4caf50; }
+        #cpu-result.bad { color: var(--danger); }
+        
+        .theme-toggle { position: absolute; top: 0.75rem; right: 0.75rem; background: none; color: var(--text); border: none; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+        
+        @media (max-width: 500px) {
+            .site-grid { grid-template-columns: 1fr; }
+            .top-row { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+
+<div class="container">
+    <div class="card">
+        <div class="top-row">
+            <div class="add-site-box">
+                <input type="text" id="site-input" placeholder="Add Site">
+                <button onclick="addSite()" title="Add Site">＋</button>
+            </div>
+            <div class="action-buttons">
+                <button onclick="testAll()" title="Run All Tests">» Run All</button>
+                <button onclick="resetSites()" title="Reset Defaults">⎌ Reset Site List</button>
+            </div>
+        </div>
+        <div class="site-grid">
+            <table id="table-left">
+                <thead>
+                    <tr><th>Target</th><th style="text-align:right"></th><th style="width:15px"></th></tr>
+                </thead>
+                <tbody id="tbody-left"></tbody>
+            </table>
+            <table id="table-right">
+                <thead>
+                    <tr><th>Target</th><th style="text-align:right"></th><th style="width:15px"></th></tr>
+                </thead>
+                <tbody id="tbody-right"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="cpu-header">
+            <h2>CPU Speed Test</h2>
+            <span class="cpu-info">primes to 1m</span>
+        </div>
+        <button class="cpu-btn" onclick="testCPU()" title="Start Benchmark">⚡ Run</button>
+        <div id="cpu-result">Ready</div>
+    </div>
+</div>
+
+<script>
+    const DEFAULT_SITES = [
+        'https://google.com', 'https://cloudflare.com', 'https://httpbin.org',
+        'https://github.com', 'https://amazon.com', 'https://facebook.com',
+        'https://apple.com', 'https://microsoft.com', 'https://netflix.com',
+        'https://twitter.com', 'https://wikipedia.org', 'https://youtube.com'
+    ];
+    let sites = JSON.parse(localStorage.getItem('latency_sites')) || [...DEFAULT_SITES];
+
+    function toggleTheme() {
+        const body = document.body;
+        const current = body.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        body.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    }
+
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.setAttribute('data-theme', 'dark');
+    }
+
+    function save() { localStorage.setItem('latency_sites', JSON.stringify(sites)); }
+
+    function render() {
+        const left = document.getElementById('tbody-left');
+        const right = document.getElementById('tbody-right');
+        left.innerHTML = '';
+        right.innerHTML = '';
+        
+        sites.forEach((site, index) => {
+            const displayUrl = site.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0];
+            const html = `
+                <tr>
+                    <td title="${site}">${displayUrl}</td>
+                    <td class="latency" id="latency-${index}">-</td>
+                    <td><span class="remove-btn" onclick="removeSite(${index})" title="Remove">&times;</span></td>
+                </tr>
+            `;
+            if (index < Math.ceil(sites.length / 2)) {
+                left.innerHTML += html;
+            } else {
+                right.innerHTML += html;
+            }
+        });
+    }
+
+    function addSite() {
+        const input = document.getElementById('site-input');
+        let url = input.value.trim();
+        if (!url) return;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        sites.push(url);
+        input.value = '';
+        save();
+        render();
+    }
+
+    function removeSite(index) {
+        sites.splice(index, 1);
+        save();
+        render();
+    }
+
+    function resetSites() {
+        sites = [...DEFAULT_SITES];
+        save();
+        render();
+    }
+
+    async function testLatency(url, index) {
+        const el = document.getElementById(`latency-${index}`);
+        el.textContent = '...';
+        el.className = 'latency';
+        
+        const start = performance.now();
+        try {
+            await fetch(url, { mode: 'no-cors', cache: 'no-cache' });
+            const end = performance.now();
+            const ms = Math.round(end - start);
+            el.textContent = ms + 'ms';
+            
+            if (ms < 100) el.classList.add('good');
+            else if (ms < 300) el.classList.add('ok');
+            else el.classList.add('bad');
+        } catch (e) {
+            el.textContent = 'err';
+            el.classList.add('bad');
+        }
+    }
+
+    function testAll() {
+        sites.forEach((site, index) => testLatency(site, index));
+    }
+
+    function testCPU() {
+        const resultEl = document.getElementById('cpu-result');
+        resultEl.textContent = '...';
+        resultEl.className = '';
+        setTimeout(() => {
+            const start = performance.now();
+            for (let i = 2; i <= 1000000; i++) {
+                let isPrime = true;
+                for (let j = 2; j <= Math.sqrt(i); j++) {
+                    if (i % j === 0) { isPrime = false; break; }
+                }
+            }
+            const end = performance.now();
+            const ms = Math.round(end - start);
+            resultEl.textContent = `${ms}ms`;
+            if (ms < 100) resultEl.className = 'good';
+            else if (ms > 200) resultEl.className = 'bad';
+        }, 50);
+    }
+
+    render();
+</script>
+
+</body>
+</html>
