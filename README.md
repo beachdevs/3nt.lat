@@ -2,6 +2,10 @@
 
 A minimalist, single-file web application for benchmarking browser-to-server latency and local CPU performance.
 
+Live site: [https://3nt.lat](https://3nt.lat)
+
+[![Screenshot of 3nt.lat](assets/3nt-lat.png)](https://3nt.lat)
+
 ## Features
 
 - **Latency Tester**: Measure round-trip time to multiple popular sites using `fetch`.
